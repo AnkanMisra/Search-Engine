@@ -1,0 +1,41 @@
+name: Update Search Index
+
+on:
+  schedule:
+    # Run every 6 hours
+    - cron: '0 */6 * * *'
+  workflow_dispatch: # Allow manual trigger
+
+jobs:
+  crawl:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+        
+    - name: Install dependencies
+      run: |
+        cd crawler
+        pip install -r requirements.txt
+        
+    - name: Run crawler
+      env:
+        MEILISEARCH_URL: ${{ secrets.MEILISEARCH_URL }}
+        MEILISEARCH_KEY: ${{ secrets.MEILISEARCH_KEY }}
+        INDEX_NAME: documents
+        MAX_PAGES: 50
+        CRAWL_DELAY: 1.0
+        REQUEST_TIMEOUT: 15
+      run: |
+        cd crawler
+        python crawler.py
+        
+    - name: Notify completion
+      if: always()
+      run: echo "Crawler job completed at $(date)" 

@@ -5,6 +5,15 @@
 .env.test.local
 .env.production.local
 
+# Vercel
+.vercel
+*.vercel.app
+
+# Node.js (root level)
+node_modules/
+package-lock.json
+yarn.lock
+
 # Logs
 logs
 *.log
