@@ -1,0 +1,94 @@
+version: '3.8'
+
+services:
+  # Meilisearch - Search Engine Database
+  meilisearch:
+    image: getmeili/meilisearch:v1.5
+    container_name: search-engine-meilisearch
+    ports:
+      - "7700:7700"
+    environment:
+      - MEILI_MASTER_KEY=masterKey123
+      - MEILI_ENV=development
+      - MEILI_LOG_LEVEL=INFO
+    volumes:
+      - meilisearch_data:/meili_data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:7700/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+  # Go Backend API Server
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: search-engine-backend
+    ports:
+      - "8080:8080"
+    environment:
+      - MEILISEARCH_URL=http://meilisearch:7700
+      - MEILISEARCH_KEY=masterKey123
+      - INDEX_NAME=documents
+      - PORT=8080
+      - GIN_MODE=release
+    depends_on:
+      meilisearch:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+  # React Frontend
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: search-engine-frontend
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+  # Python Web Crawler
+  crawler:
+    build:
+      context: ./crawler
+      dockerfile: Dockerfile
+    container_name: search-engine-crawler
+    environment:
+      - MEILISEARCH_URL=http://meilisearch:7700
+      - MEILISEARCH_KEY=masterKey123
+      - INDEX_NAME=documents
+      - MAX_PAGES=20
+      - CRAWL_DELAY=2.0
+      - REQUEST_TIMEOUT=15
+      - USER_AGENT=SearchEngine-Crawler/1.0
+    depends_on:
+      meilisearch:
+        condition: service_healthy
+    restart: "no"  # Don't restart automatically, run manually
+    profiles:
+      - crawler  # Use profile to run crawler separately
+
+volumes:
+  meilisearch_data:
+    driver: local
+
+networks:
+  default:
+    name: search-engine-network 
