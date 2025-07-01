@@ -1,6 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, Suspense, lazy } from 'react';
 import SearchBar from './components/SearchBar';
-import SearchResults from './components/SearchResults';
 import './App.css';
 
 interface SearchResult {
@@ -10,6 +9,8 @@ interface SearchResult {
   url: string;
   score: number;
 }
+
+const SearchResults = lazy(() => import('./components/SearchResults'));
 
 const App: React.FC = () => {
   const [results, setResults] = useState<SearchResult[]>([]);
@@ -63,7 +64,9 @@ const App: React.FC = () => {
           </div>
         )}
 
-        <SearchResults results={results} loading={loading} />
+        <Suspense fallback={<div>Loading results...</div>}>
+          <SearchResults results={results} loading={loading} />
+        </Suspense>
       </div>
     </div>
   );

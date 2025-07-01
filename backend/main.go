@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
@@ -57,6 +56,9 @@ func getEnv(key, defaultValue string) string {
 
 func main() {
 	config := loadConfig()
+
+	// Set Gin to release mode for better performance in production
+	gin.SetMode(gin.ReleaseMode)
 
 	// Initialize Meilisearch client
 	client := meilisearch.NewClient(meilisearch.ClientConfig{
@@ -162,29 +164,26 @@ func performSearch(client *meilisearch.Client, indexName, query string, limit in
 
 	// Search request
 	searchRes, err := index.Search(query, &meilisearch.SearchRequest{
-		Limit:                    int64(limit),
-		AttributesToHighlight:    []string{"title", "content"},
-		HighlightPreTag:          "<mark>",
-		HighlightPostTag:         "</mark>",
-		AttributesToCrop:         []string{"content"},
-		CropLength:               200,
-		ShowMatchesPosition:      true,
-		AttributesToRetrieve:     []string{"*"},
+		Limit:                 int64(limit),
+		AttributesToHighlight: []string{"title", "content"},
+		HighlightPreTag:       "<mark>",
+		HighlightPostTag:      "</mark>",
+		AttributesToCrop:      []string{"content"},
+		CropLength:            200,
+		ShowMatchesPosition:   true,
+		AttributesToRetrieve:  []string{"*"},
 	})
 
 	if err != nil {
 		return nil, err
 	}
 
-	var results []SearchResult
+	// Pre-allocate slice to avoid reallocations
+	results := make([]SearchResult, 0, len(searchRes.Hits))
 	for i, hit := range searchRes.Hits {
-		hitBytes, err := json.Marshal(hit)
-		if err != nil {
-			continue
-		}
-
-		var doc map[string]interface{}
-		if err := json.Unmarshal(hitBytes, &doc); err != nil {
+		// Meilisearch returns each hit as map[string]interface{}
+		doc, ok := hit.(map[string]interface{})
+		if !ok {
 			continue
 		}
 
@@ -195,7 +194,6 @@ func performSearch(client *meilisearch.Client, indexName, query string, limit in
 			URL:     getString(doc, "url"),
 			Score:   float64(len(searchRes.Hits) - i), // Simple scoring based on position
 		}
-
 		results = append(results, result)
 	}
 
